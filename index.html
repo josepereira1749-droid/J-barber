@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J. Barber - Reserva</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body{font-family:Arial,sans-serif;background:#111;color:#fff;max-width:700px;margin:auto;padding:20px}
+  .card{background:#222;padding:20px;border-radius:12px;margin-bottom:16px}
+  h1{color:#c89b3c;margin-top:0}
+  h2{border-bottom:1px solid #444;padding-bottom:8px}
+  button{background:#c89b3c;color:#111;border:none;padding:12px 18px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%;font-size:16px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.secondary{background:#333;color:#fff;margin-top:10px}
+  select,input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #444;background:#1a1a1a;color:#fff}
+  option:disabled{color:#666}
+  label{font-size:13px;color:#aaa;margin-top:8px;display:block}
+  table{width:100%;border-collapse:collapse}
+  td,th{padding:8px;border-bottom:1px solid #444;text-align:left}
+  .error{color:#ff6b6b;font-size:13px;min-height:18px;margin:-4px 0 4px}
+  .estado-nota{font-size:13px;color:#aaa;margin-top:6px}
+  #qrBox{display:none;text-align:center}
+  #qrBox.show{display:block}
+  #qrcode{background:#fff;display:inline-block;padding:16px;border-radius:8px;margin:12px 0}
+  .qr-credito{font-size:10px;color:#555;margin-top:-6px}
+  .resumen{background:#1a1a1a;border-radius:8px;padding:12px;text-align:left;margin-bottom:12px;font-size:14px;line-height:1.6}
+  .hint{font-size:13px;color:#aaa;margin-top:8px}
+  .sello{background:#1a1a1a;border:1px solid #c89b3c;border-radius:10px;padding:14px 16px;text-align:center;font-size:12px;color:#aaa;margin-top:4px}
+  .sello-titulo{color:#c89b3c;font-weight:bold;letter-spacing:1px;text-transform:uppercase;font-size:11px;margin:0 0 6px}
+  .sello-linea{margin:2px 0}
+  .resultado-item{background:#1a1a1a;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:14px;line-height:1.5}
+  .resultado-item .estado{padding:2px 8px;border-radius:6px;font-size:12px;font-weight:bold}
+  .estado.pendiente{background:#5c4a1a;color:#ffce6b}
+  .estado.aceptada{background:#1a4a2a;color:#7fdb8f}
+  .estado.rechazada{background:#4a1a1a;color:#ff9b9b}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>J. Barber</h1>
+  <p><b>Dirección:</b> Sola Sierra Enríquez</p>
+  <p><b>WhatsApp:</b> +56 9 3592 9811</p>
+  <p><b>Atención:</b> Lunes a domingo (45 min por cliente)</p>
+
+  <h2>Servicios</h2>
+  <table>
+    <tr><th>Servicio</th><th>Precio</th></tr>
+    <tr><td>Corte degradado</td><td>$10.000</td></tr>
+    <tr><td>Corte tradicional</td><td>$9.000</td></tr>
+    <tr><td>Limpieza facial</td><td>Desde $10.000</td></tr>
+    <tr><td>Cejas</td><td>$2.000</td></tr>
+    <tr><td>Líneas</td><td>Desde $1.000</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Reserva de hora</h2>
+
+  <label for="nombre">Nombre</label>
+  <input id="nombre" placeholder="Tu nombre">
+
+  <label for="telefono">Teléfono</label>
+  <input id="telefono" type="tel" placeholder="+56 9 ....">
+
+  <label for="servicio">Servicio</label>
+  <select id="servicio">
+    <option value="Corte degradado ($10.000)">Corte degradado ($10.000)</option>
+    <option value="Corte tradicional ($9.000)">Corte tradicional ($9.000)</option>
+    <option value="Limpieza facial (desde $10.000)">Limpieza facial (desde $10.000)</option>
+    <option value="Cejas ($2.000)">Cejas ($2.000)</option>
+    <option value="Líneas (desde $1.000)">Líneas (desde $1.000)</option>
+  </select>
+
+  <label for="fecha">Fecha</label>
+  <input id="fecha" type="date">
+
+  <label for="hora">Hora</label>
+  <select id="hora">
+    <option>09:00</option><option>09:45</option><option>10:30</option><option>11:15</option>
+    <option>12:00</option><option>12:45</option><option>15:00</option><option>15:45</option>
+    <option>16:30</option><option>17:15</option><option>18:00</option>
+  </select>
+  <p class="estado-nota" id="disponibilidadNota"></p>
+
+  <div class="error" id="formError"></div>
+  <button id="btnGenerar" onclick="generarReserva()">Solicitar hora</button>
+
+  <div id="qrBox">
+    <h2>Reserva enviada</h2>
+    <p class="hint">Tu reserva quedó <b>pendiente</b> de confirmación del barbero. Escanea o toca el botón para avisarle por WhatsApp.</p>
+    <div id="qrcode"></div>
+    <p class="qr-credito">Plataforma creada por José Pereira</p>
+    <div class="resumen" id="resumen"></div>
+    <button onclick="abrirWhatsApp()">Enviar por WhatsApp ahora</button>
+    <button class="secondary" onclick="editar()">Hacer otra reserva</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Consultar mi reserva</h2>
+  <label for="consultaTelefono">Teléfono usado en la reserva</label>
+  <input id="consultaTelefono" type="tel" placeholder="+56 9 ....">
+  <button class="secondary" onclick="consultarEstado()">Ver estado de mis reservas</button>
+  <div id="resultadoConsulta"></div>
+</div>
+
+<div class="sello">
+  <p class="sello-titulo">Creador de plataforma</p>
+  <p class="sello-linea">José Pereira</p>
+  <p class="sello-linea">jose.pereira1749@gmail.com</p>
+  <p class="sello-linea">Tec. Nivel Sup. Procesos Mineros</p>
+</div>
+
+<script>
+const NUMERO_BARBERO = "56935929811"; // formato internacional sin '+' ni espacios
+const API = "/.netlify/functions/reservas";
+let ultimoLink = "";
+
+const inputFecha = document.getElementById('fecha');
+const selectHora = document.getElementById('hora');
+
+// Cuando cambia la fecha, consulta qué horarios ya están ocupados
+inputFecha.addEventListener('change', actualizarDisponibilidad);
+
+async function actualizarDisponibilidad(){
+  const fecha = inputFecha.value;
+  const nota = document.getElementById('disponibilidadNota');
+  [...selectHora.options].forEach(o => { o.disabled = false; o.textContent = o.value; });
+  if(!fecha){ nota.textContent = ""; return; }
+
+  nota.textContent = "Consultando disponibilidad...";
+  try{
+    const res = await fetch(`${API}?fecha=${fecha}`);
+    const ocupadas = await res.json();
+    const horasOcupadas = new Set(ocupadas.map(o => o.hora));
+    [...selectHora.options].forEach(o => {
+      if(horasOcupadas.has(o.value)){
+        o.disabled = true;
+        o.textContent = `${o.value} (ocupado)`;
+      }
+    });
+    nota.textContent = horasOcupadas.size
+      ? "Los horarios marcados como 'ocupado' ya tienen una reserva."
+      : "Todos los horarios están disponibles para ese día.";
+  }catch(e){
+    nota.textContent = "No se pudo consultar la disponibilidad, intenta de nuevo.";
+  }
+}
+
+async function generarReserva(){
+  const nombre = document.getElementById('nombre').value.trim();
+  const telefono = document.getElementById('telefono').value.trim();
+  const servicio = document.getElementById('servicio').value;
+  const fecha = inputFecha.value;
+  const hora = selectHora.value;
+  const errorBox = document.getElementById('formError');
+
+  if(!nombre || !telefono || !fecha){
+    errorBox.textContent = "Por favor completa nombre, teléfono y fecha.";
+    return;
+  }
+  errorBox.textContent = "Enviando...";
+
+  try{
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ nombre, telefono, servicio, fecha, hora })
+    });
+    const data = await res.json();
+
+    if(res.status === 409){
+      errorBox.textContent = "Ese horario se acaba de ocupar. Elige otro.";
+      actualizarDisponibilidad();
+      return;
+    }
+    if(!res.ok){
+      errorBox.textContent = data.error || "Ocurrió un error, intenta de nuevo.";
+      return;
+    }
+
+    errorBox.textContent = "";
+    mostrarQR(nombre, telefono, servicio, fecha, hora);
+  }catch(e){
+    errorBox.textContent = "No se pudo conectar con el servidor.";
+  }
+}
+
+function mostrarQR(nombre, telefono, servicio, fecha, hora){
+  const fechaLegible = new Date(fecha + 'T00:00:00').toLocaleDateString('es-CL', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+
+  const mensaje =
+`Hola! Quiero reservar hora en J. Barber:
+- Nombre: ${nombre}
+- Teléfono: ${telefono}
+- Servicio: ${servicio}
+- Fecha: ${fechaLegible}
+- Hora: ${hora}`;
+
+  ultimoLink = `https://wa.me/${NUMERO_BARBERO}?text=${encodeURIComponent(mensaje)}`;
+
+  document.getElementById('qrcode').innerHTML = "";
+  new QRCode(document.getElementById('qrcode'), {
+    text: ultimoLink, width: 200, height: 200,
+    colorDark: "#111111", colorLight: "#ffffff"
+  });
+
+  document.getElementById('resumen').innerHTML =
+    `<b>${nombre}</b><br>${servicio}<br>${fechaLegible} a las ${hora}<br>Tel: ${telefono}<br><b>Estado: Pendiente</b>`;
+
+  document.getElementById('qrBox').classList.add('show');
+  document.getElementById('btnGenerar').disabled = true;
+}
+
+function abrirWhatsApp(){
+  if(ultimoLink) window.open(ultimoLink, '_blank');
+}
+
+function editar(){
+  document.getElementById('qrBox').classList.remove('show');
+  document.getElementById('btnGenerar').disabled = false;
+  document.getElementById('nombre').value = "";
+  document.getElementById('telefono').value = "";
+  actualizarDisponibilidad();
+}
+
+async function consultarEstado(){
+  const telefono = document.getElementById('consultaTelefono').value.trim();
+  const resultado = document.getElementById('resultadoConsulta');
+  if(!telefono){
+    resultado.innerHTML = `<p class="estado-nota">Ingresa el teléfono que usaste para reservar.</p>`;
+    return;
+  }
+  resultado.innerHTML = `<p class="estado-nota">Buscando...</p>`;
+
+  try{
+    const res = await fetch(`${API}?telefono=${encodeURIComponent(telefono)}`);
+    const data = await res.json();
+    if(!res.ok){
+      resultado.innerHTML = `<p class="estado-nota">${data.error || 'Ocurrió un error.'}</p>`;
+      return;
+    }
+    if(data.length === 0){
+      resultado.innerHTML = `<p class="estado-nota">No encontramos reservas con ese teléfono.</p>`;
+      return;
+    }
+    resultado.innerHTML = data.map(r => {
+      const fecha = new Date(r.fecha).toLocaleDateString('es-CL');
+      return `<div class="resultado-item">
+        <b>${r.servicio}</b><br>
+        ${fecha} a las ${r.hora}<br>
+        Estado: <span class="estado ${r.estado}">${r.estado}</span>
+      </div>`;
+    }).join('');
+  }catch(e){
+    resultado.innerHTML = `<p class="estado-nota">No se pudo conectar con el servidor.</p>`;
+  }
+}
+</script>
+
+</body>
+</html>

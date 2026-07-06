@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J. Barber - Panel del barbero</title>
+<style>
+  * { box-sizing: border-box; }
+  body{font-family:Arial,sans-serif;background:#111;color:#fff;max-width:800px;margin:auto;padding:20px}
+  .card{background:#222;padding:20px;border-radius:12px;margin-bottom:16px}
+  h1{color:#c89b3c;margin-top:0}
+  input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #444;background:#1a1a1a;color:#fff}
+  button{background:#c89b3c;color:#111;border:none;padding:10px 14px;border-radius:8px;font-weight:bold;cursor:pointer}
+  button.rechazar{background:#a33}
+  button.rechazar{color:#fff}
+  .error{color:#ff6b6b;font-size:13px;min-height:18px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:8px;border-bottom:1px solid #444;text-align:left;vertical-align:top}
+  .estado{padding:3px 8px;border-radius:6px;font-size:12px;font-weight:bold}
+  .estado.pendiente{background:#5c4a1a;color:#ffce6b}
+  .estado.aceptada{background:#1a4a2a;color:#7fdb8f}
+  .estado.rechazada{background:#4a1a1a;color:#ff9b9b}
+  .acciones button{margin:2px 4px 2px 0}
+  #login{max-width:340px;margin:80px auto}
+  .hint{font-size:13px;color:#aaa}
+  .dia-header td{background:#1a1a1a;font-weight:bold;color:#c89b3c;padding-top:16px}
+  .dia-total{font-size:13px;color:#7fdb8f;font-weight:normal}
+  .btn-limpiar{width:auto;background:#333;color:#fff;font-size:12px;padding:6px 10px;margin-left:10px}
+</style>
+</head>
+<body>
+
+<div id="login" class="card">
+  <h1>Panel del barbero</h1>
+  <p class="hint">Ingresa tu clave de acceso para ver tus reservas.</p>
+  <input id="clave" type="password" placeholder="Clave de acceso">
+  <div class="error" id="loginError"></div>
+  <button onclick="entrar()" style="width:100%">Entrar</button>
+</div>
+
+<div id="panel" class="card" style="display:none">
+  <h1>Mis reservas</h1>
+  <button onclick="cargar()">Actualizar lista</button>
+  <p id="panelError" class="error"></p>
+  <table id="tabla">
+    <thead>
+      <tr><th>Cliente</th><th>Servicio</th><th>Hora</th><th>Estado</th><th>Monto</th><th>Acciones</th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+const API = "/.netlify/functions/reservas";
+let CLAVE = "";
+
+function entrar(){
+  const clave = document.getElementById('clave').value.trim();
+  if(!clave){ document.getElementById('loginError').textContent = "Ingresa tu clave."; return; }
+  CLAVE = clave;
+  cargar();
+}
+
+async function cargar(){
+  const panelError = document.getElementById('panelError');
+  const loginError = document.getElementById('loginError');
+  panelError.textContent = "Cargando...";
+
+  try{
+    const res = await fetch(`${API}?admin=${encodeURIComponent(CLAVE)}`);
+    if(res.status === 401){
+      loginError.textContent = "Clave incorrecta.";
+      panelError.textContent = "";
+      return;
+    }
+    const data = await res.json();
+    if(!res.ok){ panelError.textContent = data.error || "Error al cargar."; return; }
+
+    document.getElementById('login').style.display = "none";
+    document.getElementById('panel').style.display = "block";
+    panelError.textContent = "";
+    renderTabla(data);
+  }catch(e){
+    panelError.textContent = "No se pudo conectar con el servidor.";
+  }
+}
+
+const PRECIOS = {
+  "Corte degradado ($10.000)": 10000,
+  "Corte tradicional ($9.000)": 9000,
+  "Limpieza facial (desde $10.000)": 10000,
+  "Cejas ($2.000)": 2000,
+  "Líneas (desde $1.000)": 1000
+};
+
+function formatoCLP(n){
+  return "$" + n.toLocaleString('es-CL');
+}
+
+function renderTabla(reservas){
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = "";
+
+  if(reservas.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6">Todavía no hay reservas.</td></tr>`;
+    return;
+  }
+
+  // Agrupar por fecha
+  const porFecha = {};
+  reservas.forEach(r => {
+    const f = r.fecha;
+    if(!porFecha[f]) porFecha[f] = [];
+    porFecha[f].push(r);
+  });
+
+  const fechasOrdenadas = Object.keys(porFecha).sort().reverse();
+
+  fechasOrdenadas.forEach(fecha => {
+    const grupo = porFecha[fecha];
+    const fechaLegible = new Date(fecha).toLocaleDateString('es-CL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    const total = grupo
+      .filter(r => r.estado === 'aceptada')
+      .reduce((sum, r) => sum + (PRECIOS[r.servicio] || 0), 0);
+
+    const trHeader = document.createElement('tr');
+    trHeader.className = 'dia-header';
+    trHeader.innerHTML = `
+      <td colspan="6">
+        ${fechaLegible} &nbsp; <span class="dia-total">Recaudado (aceptadas): ${formatoCLP(total)}</span>
+        <button class="btn-limpiar" onclick="eliminarDia('${fecha}')">Limpiar este día</button>
+      </td>`;
+    tbody.appendChild(trHeader);
+
+    grupo.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.nombre}<br><small>${r.telefono}</small></td>
+        <td>${r.servicio}</td>
+        <td>${r.hora}</td>
+        <td><span class="estado ${r.estado}">${r.estado}</span></td>
+        <td>${r.estado === 'aceptada' ? formatoCLP(PRECIOS[r.servicio] || 0) : '—'}</td>
+        <td class="acciones">
+          ${r.estado === 'pendiente' ? `
+            <button onclick="cambiarEstado(${r.id}, 'aceptada')">Aceptar</button>
+            <button class="rechazar" onclick="cambiarEstado(${r.id}, 'rechazada')">Rechazar</button>
+          ` : `
+            <button onclick="avisarCliente('${r.telefono}', '${r.nombre}', '${r.estado}')">Avisar por WhatsApp</button>
+          `}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+async function eliminarDia(fecha){
+  const fechaLegible = new Date(fecha).toLocaleDateString('es-CL');
+  if(!confirm(`¿Seguro que quieres borrar todas las reservas del ${fechaLegible}? Esta acción no se puede deshacer.`)) return;
+
+  try{
+    const res = await fetch(API, {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ fecha, admin: CLAVE })
+    });
+    if(!res.ok){
+      document.getElementById('panelError').textContent = "No se pudo limpiar el día.";
+      return;
+    }
+    cargar();
+  }catch(e){
+    document.getElementById('panelError').textContent = "Error de conexión.";
+  }
+}
+
+async function cambiarEstado(id, estado){
+  try{
+    const res = await fetch(API, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id, estado, admin: CLAVE })
+    });
+    if(!res.ok){
+      document.getElementById('panelError').textContent = "No se pudo actualizar la reserva.";
+      return;
+    }
+    cargar();
+  }catch(e){
+    document.getElementById('panelError').textContent = "Error de conexión.";
+  }
+}
+
+function avisarCliente(telefono, nombre, estado){
+  const numero = telefono.replace(/[^0-9]/g, '');
+  const mensaje = estado === 'aceptada'
+    ? `Hola ${nombre}! Tu reserva en J. Barber fue confirmada. Te esperamos.`
+    : `Hola ${nombre}, lamentablemente no podemos confirmar tu hora en ese horario. Por favor elige otro horario en nuestra página.`;
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, '_blank');
+}
+</script>
+
+</body>
+</html>
